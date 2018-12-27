@@ -1,0 +1,72 @@
+package com.crud.example.service;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Optional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.crud.example.Debug;
+import com.crud.example.entity.Role;
+import com.crud.example.entity.User;
+import com.crud.example.exception.UserNotFound;
+import com.crud.example.repository.RoleRepository;
+import com.crud.example.repository.UserRepository;
+
+@Service
+public class UserService {
+	Logger logger = LoggerFactory.getLogger(this.getClass());
+	@Autowired
+	private UserRepository repository;
+	@Autowired
+	private RoleRepository roleRepository;
+	private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+
+	public List<User> findAll() {
+		return repository.findAll();
+	}
+
+	public User findById(Long id) {
+		Optional<User> userinOptional = repository.findById(id);
+		if (!userinOptional.isPresent()) {
+			throw new UserNotFound("User is not found with given id");
+		}
+		return userinOptional.get();
+	}
+
+	public String save(User user) {
+		user.setPassword(encoder.encode(user.getPassword()));
+		user.setActive(1);
+		Role role  = roleRepository.findByRole("admin");
+		user.addRole(role);
+		
+		System.out.println(role);
+		repository.save(user);
+		return "hello";
+	}
+
+	public void delete(Long id) {
+		Optional<User> user = repository.findById(id);
+		if (!user.isPresent()) {
+			throw new UserNotFound("User not found with given id");
+		}
+		repository.delete(user.get());
+	}
+
+	public boolean login(HashMap<String, String> map) {
+		Optional<User> user = repository.findByName(map.get("username"));
+		Debug.sd(user);
+		if(!user.isPresent()) {
+			throw new UserNotFound("User with this username is not found.");
+		}
+		boolean authenticate = encoder.matches(map.get("password"), user.get().getPassword());
+		if (!authenticate || (user == null)) {
+			throw new UserNotFound("Password is incorrect.");
+		}
+		return authenticate;
+	}
+}
